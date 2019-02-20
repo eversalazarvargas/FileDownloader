@@ -282,7 +282,7 @@ public class FileDownloaderTest {
         when(item.getDownloadToken()).thenReturn(token);
         List<DownloadInfo> completed = new ArrayList<>();
         completed.add(item);
-        when(downloadRegistry.getCompleted()).thenReturn(completed);
+        when(downloadRegistry.getCompleted(any(Date.class), any(Date.class))).thenReturn(completed);
 
         when(fileDownloader.getDownloadRegistry()).thenReturn(downloadRegistry);
 
