@@ -12,6 +12,7 @@ import org.mockito.stubbing.Answer;
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
 
 import static org.junit.Assert.assertEquals;
@@ -39,8 +40,10 @@ public class FileDownloaderTest {
         File filesDirectory = new File(userDir);
 
         fileDownloaderConfig = new FileDownloaderConfig.Builder()
-                .withContext(context)
-                .withFilesDirectory(filesDirectory)
+                .context(context)
+                .filesDirectory(filesDirectory)
+                .timeout(30)
+                .keepLastDownloadRecords(200)
                 .build();
 
         fileDownloader = mock(FileDownloader.class);
@@ -63,8 +66,8 @@ public class FileDownloaderTest {
 
         try {
             new FileDownloaderConfig.Builder()
-                    .withContext(context)
-                    .withFilesDirectory(filesDirectory)
+                    .context(context)
+                    .filesDirectory(filesDirectory)
                     .build();
         } catch (IllegalStateException ex) {
             assertEquals("Directory must exists", ex.getMessage());
@@ -81,8 +84,8 @@ public class FileDownloaderTest {
 
         try {
             new FileDownloaderConfig.Builder()
-                    .withContext(context)
-                    .withFilesDirectory(someFile)
+                    .context(context)
+                    .filesDirectory(someFile)
                     .build();
         } catch (IllegalStateException ex) {
             assertEquals("Directory parameter is not a directory", ex.getMessage());
@@ -98,7 +101,7 @@ public class FileDownloaderTest {
             @Override
             public DownloadToken answer(InvocationOnMock invocation) throws Throwable {
                 DownloadListener listener = invocation.getArgument(2);
-                StatusEvent response = new StatusEvent(Status.COMPLETED, 1.0, fileDownloader, uri, fileName);
+                StatusEvent response = new StatusEvent(Status.COMPLETED, 1.0, fileDownloader, uri, fileName, null);
                 listener.onCompleted(response);
 
                 return new DownloadToken();
@@ -127,6 +130,68 @@ public class FileDownloaderTest {
             @Override
             public void onError(@NotNull StatusEvent status) {
 
+            }
+        };
+
+        DownloadToken token = fileDownloader.uri(uri)
+                .fileName(fileName)
+                .listener(testListener)
+                .timeout(2)
+                .directory(new File("hello"))
+                .download();
+
+        assertNotNull(token);
+    }
+
+    @Test
+    public void error() {
+        final String fileName = "myfile";
+
+        doAnswer(new Answer<DownloadToken>() {
+
+            @Override
+            public DownloadToken answer(InvocationOnMock invocation) throws Throwable {
+                DownloadListener listener = invocation.getArgument(2);
+                Error error = new Error(Error.Code.HTTP_ERROR, 400);
+                StatusEvent response = new StatusEvent(Status.ERROR, 1.0, fileDownloader, uri, fileName, error);
+                listener.onError(response);
+
+                return new DownloadToken();
+            }
+        }).when(fileDownloader).download(any(Uri.class), anyString(), any(DownloadListener.class), anyLong(), any(File.class));
+
+
+        DownloadListener testListener = new DownloadListener() {
+            @Override
+            public void onCompleted(@NotNull StatusEvent status) {
+            }
+
+            @Override
+            public void onProgress(@NotNull StatusEvent status) {
+
+            }
+
+            @Override
+            public void onCancelled(@NotNull StatusEvent status) {
+
+            }
+
+            @Override
+            public void onError(@NotNull StatusEvent status) {
+                assertEquals(Status.ERROR, status.getStatus());
+
+                Error error = status.getError();
+                if (error != null) {
+                    switch (error.getCode()) {
+                        case DOWNLOAD_ALREADY_IN_PROGRESS:
+                            break;
+                        case HTTP_ERROR:
+                            assertNotNull(error.getHttpErrorCode());
+                            break;
+                        default:
+                            break;
+                    }
+                }
             }
         };
 
@@ -178,7 +243,7 @@ public class FileDownloaderTest {
             @Override
             public DownloadToken answer(InvocationOnMock invocation) throws Throwable {
                 DownloadListener listener = invocation.getArgument(2);
-                StatusEvent response = new StatusEvent(Status.IN_PROGRESS, 0.5, fileDownloader, uri, fileName);
+                StatusEvent response = new StatusEvent(Status.IN_PROGRESS, 0.5, fileDownloader, uri, fileName, null);
                 listener.onProgress(response);
 
                 return new DownloadToken();
@@ -188,7 +253,7 @@ public class FileDownloaderTest {
         doAnswer(new Answer<Void>() {
             @Override
             public Void answer(InvocationOnMock invocation) {
-                StatusEvent response = new StatusEvent(Status.CANCELLED, 0.5, fileDownloader, uri, fileName);
+                StatusEvent response = new StatusEvent(Status.CANCELLED, 0.5, fileDownloader, uri, fileName, null);
                 testListener.onCancelled(response);
 
                 return null;
@@ -226,7 +291,7 @@ public class FileDownloaderTest {
             @Override
             public DownloadToken answer(InvocationOnMock invocation) throws Throwable {
                 DownloadListener listener = invocation.getArgument(2);
-                StatusEvent response = new StatusEvent(Status.COMPLETED, 1.0, fileDownloader, uri, fileName);
+                StatusEvent response = new StatusEvent(Status.COMPLETED, 1.0, fileDownloader, uri, fileName, null);
                 listener.onCompleted(response);
 
                 return token;
@@ -267,7 +332,7 @@ public class FileDownloaderTest {
         assertNotNull(tokenResult);
 
         // the following is supposed to run in a background thread
-        List<DownloadInfo> completedResult = fileDownloader.getDownloadRegistry().getCompleted();
+        List<DownloadInfo> completedResult = fileDownloader.getDownloadRegistry().getCompleted(new Date(), new Date());
         assertEquals(tokenResult, completedResult.get(0).getDownloadToken());
     }
 

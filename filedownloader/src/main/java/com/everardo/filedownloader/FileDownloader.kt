@@ -4,11 +4,12 @@ import android.net.Uri
 import java.io.File
 
 
-class FileDownloader(config: FileDownloaderConfig) {
+class FileDownloader(private val config: FileDownloaderConfig) {
 
     private val context = config.context
     val downloadRegistry = config.downloadRegistry
     val directory: File? = config.directory
+    val timeout: Long? = config.timeout
 
     fun uri(uri: Uri): RequestCreator = RequestCreator(this, uri)
 
