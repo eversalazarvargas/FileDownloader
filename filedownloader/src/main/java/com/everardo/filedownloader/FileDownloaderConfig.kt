@@ -1,21 +1,28 @@
 package com.everardo.filedownloader
 
 import android.content.Context
+import com.everardo.filedownloader.di.ObjectFactory
+import com.everardo.filedownloader.di.ObjectFactoryImpl
 import java.io.File
 
 class FileDownloaderConfig private constructor(builder: Builder) {
 
-    val context = builder.context
-    val downloadRegistry = DownloadRegistry(builder.context)
-    val directory: File? = builder.directory
+    internal val objectFactory: ObjectFactory
+
+    val directory: File = builder.directory
     val timeout: Long? = builder.timeout
+
+    init {
+        ObjectFactory.instance = ObjectFactoryImpl(builder.context)
+        objectFactory = ObjectFactory.instance
+    }
 
     class Builder {
 
         internal lateinit var context: Context
             private set
 
-        internal var directory: File? = null
+        internal lateinit var directory: File
             private set
 
         internal var timeout: Long? = null
@@ -53,11 +60,9 @@ class FileDownloaderConfig private constructor(builder: Builder) {
 
         fun build(): FileDownloaderConfig {
             checkNotNull(context) { "Context cannot be null" }
-
-            directory?.let {
-                check(it.exists()) { "Directory must exists" }
-                check(it.isDirectory) { "Directory parameter is not a directory"}
-            }
+            checkNotNull(directory) { "Directory cannot be null" }
+            check(directory!!.exists()) { "Directory must exists" }
+            check(directory!!.isDirectory) { "Directory parameter is not a directory"}
 
             timeout?.let {
                 check(it > 0) { "Timeout must be greater than zero milliseconds" }

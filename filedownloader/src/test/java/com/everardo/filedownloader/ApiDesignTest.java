@@ -26,7 +26,7 @@ import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-public class FileDownloaderTest {
+public class ApiDesignTest {
 
     private final String userDir = System.getProperty("user.dir");
     private FileDownloader fileDownloader;
@@ -104,7 +104,7 @@ public class FileDownloaderTest {
                 StatusEvent response = new StatusEvent(Status.COMPLETED, 1.0, fileDownloader, uri, fileName, null);
                 listener.onCompleted(response);
 
-                return new DownloadToken();
+                return new DownloadToken(mock(Uri.class), "any");
             }
         }).when(fileDownloader).download(any(Uri.class), anyString(), any(DownloadListener.class), anyLong(), any(File.class));
 
@@ -156,7 +156,7 @@ public class FileDownloaderTest {
                 StatusEvent response = new StatusEvent(Status.ERROR, 1.0, fileDownloader, uri, fileName, error);
                 listener.onError(response);
 
-                return new DownloadToken();
+                return new DownloadToken(mock(Uri.class), "any");
             }
         }).when(fileDownloader).download(any(Uri.class), anyString(), any(DownloadListener.class), anyLong(), any(File.class));
 
@@ -246,7 +246,7 @@ public class FileDownloaderTest {
                 StatusEvent response = new StatusEvent(Status.IN_PROGRESS, 0.5, fileDownloader, uri, fileName, null);
                 listener.onProgress(response);
 
-                return new DownloadToken();
+                return new DownloadToken(mock(Uri.class), "any");
             }
         }).when(fileDownloader).download(any(Uri.class), anyString(), any(DownloadListener.class), anyLong(), any(File.class));
 
@@ -334,6 +334,15 @@ public class FileDownloaderTest {
         // the following is supposed to run in a background thread
         List<DownloadInfo> completedResult = fileDownloader.getDownloadRegistry().getCompleted(new Date(), new Date());
         assertEquals(tokenResult, completedResult.get(0).getDownloadToken());
+    }
+
+    @Test(expected = IllegalArgumentException.class)
+    public void requestCreatorNullUri() {
+        FileDownloader fileDownloader = new FileDownloader(fileDownloaderConfig);
+
+        fileDownloader.uri(null)
+                .fileName("filename")
+                .download();
     }
 
 }

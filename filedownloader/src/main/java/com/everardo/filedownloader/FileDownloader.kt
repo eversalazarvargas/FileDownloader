@@ -1,25 +1,43 @@
 package com.everardo.filedownloader
 
 import android.net.Uri
+import com.everardo.filedownloader.service.DownloadService
 import java.io.File
 
 
 class FileDownloader(private val config: FileDownloaderConfig) {
 
-    private val context = config.context
-    val downloadRegistry = config.downloadRegistry
-    val directory: File? = config.directory
-    val timeout: Long? = config.timeout
+    private val objectFactory by lazy { config.objectFactory }
+    private val context by lazy { objectFactory.context }
+    private val notifier by lazy { objectFactory.getNotifier() }
+    val downloadRegistry by lazy { objectFactory.downloadRegistry }
 
     fun uri(uri: Uri): RequestCreator = RequestCreator(this, uri)
 
     //TODO set visibility access to "internal"
+    @Synchronized
     protected fun download(uri: Uri, fileName: String, listener: DownloadListener?, timeout: Long? = null, directory: File? = null): DownloadToken {
-        TODO()
+        val token = DownloadToken(uri, fileName)
+        listener?.let {
+            notifier.addObserver(token, it)
+        }
+
+        val directoryParam = directory ?: config.directory
+        val directoryPath = directoryParam.path
+
+        context.startService(DownloadService.getDownloadIntent(context, token, timeout ?: config.timeout, directoryPath))
+
+        return token
     }
 
+    @Synchronized
     fun cancel(downloadToken: DownloadToken) {
-        TODO()
+        context.startService(DownloadService.getCancelIntent(context, downloadToken))
+    }
+
+    @Synchronized
+    fun removeListener(listener: DownloadListener) {
+        notifier.removeObserver(listener)
     }
 
     class RequestCreator internal constructor(private val fileDownloader: FileDownloader, private val uri: Uri) {
@@ -54,7 +72,7 @@ class FileDownloader(private val config: FileDownloaderConfig) {
                 check(it > 0) { "Timeout must be greater than zero milliseconds" }
             }
 
-            return fileDownloader.download(uri = uri, fileName = fileName, listener = listener, timeout = timeout, directory = directory)
+            return fileDownloader.download(uri, fileName, listener, timeout, directory)
         }
     }
 }
