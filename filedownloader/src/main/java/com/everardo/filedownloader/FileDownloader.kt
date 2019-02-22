@@ -36,8 +36,8 @@ class FileDownloader(private val config: FileDownloaderConfig) {
     }
 
     @Synchronized
-    fun removeListener(listener: DownloadListener) {
-        notifier.removeObserver(listener)
+    fun removeListener(downloadToken: DownloadToken) {
+        notifier.removeObserver(downloadToken)
     }
 
     class RequestCreator internal constructor(private val fileDownloader: FileDownloader, private val uri: Uri) {

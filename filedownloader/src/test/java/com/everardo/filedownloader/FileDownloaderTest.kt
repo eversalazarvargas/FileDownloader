@@ -130,9 +130,9 @@ class FileDownloaderTest {
 
     @Test
     fun removeListener() {
-        fileDownloader.removeListener(downloadListener)
+        fileDownloader.removeListener(mock(DownloadToken::class.java))
 
-        verify(notifier).removeObserver(anySafe(DownloadListener::class.java))
+        verify(notifier).removeObserver(anySafe(DownloadToken::class.java))
     }
 
     @Test
