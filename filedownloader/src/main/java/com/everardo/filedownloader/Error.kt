@@ -1,6 +1,10 @@
 package com.everardo.filedownloader
 
-data class Error(val code: Code, val httpErrorCode: Int? = 0) {
+import android.os.Parcelable
+import kotlinx.android.parcel.Parcelize
+
+@Parcelize
+data class Error(val code: Code, val httpErrorCode: Int? = 0): Parcelable {
 
     val message = code.message
 

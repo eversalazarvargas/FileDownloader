@@ -3,6 +3,7 @@ package com.everardo.filedownloader
 import android.net.Uri
 
 data class StatusEvent(val status: Status,
+                       val token: DownloadToken,
                        val progress: Double,
                        val downloader: FileDownloader,
                        val uri: Uri,

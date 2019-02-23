@@ -11,6 +11,7 @@ class FileDownloaderConfig private constructor(builder: Builder) {
 
     val directory: File = builder.directory
     val timeout: Long? = builder.timeout
+    val maxDownloadRecords: Int = builder.maxDownloadRecords
 
     init {
         ObjectFactory.instance = ObjectFactoryImpl(builder.context)
@@ -28,7 +29,7 @@ class FileDownloaderConfig private constructor(builder: Builder) {
         internal var timeout: Long? = null
             private set
 
-        internal var maxDownloadRecords: Int? = null
+        internal var maxDownloadRecords: Int = 10000
             private set
 
         fun context(context: Context): Builder {
@@ -49,28 +50,28 @@ class FileDownloaderConfig private constructor(builder: Builder) {
         /**
          * Keeps the last numberOfRecords records in the [DownloadRegistry].
          * This doesn't delete the actual files but just delete the records from the database.
-         * By default it will keep the last 100 download records of any [Status]
+         * By default it will keep the last 100,000 download records of any [Status]
          *
          * @param numberOfRecords The number of records to keep in the [DownloadRegistry] starting from the last one.
          */
         fun keepLastDownloadRecords(numberOfRecords: Int): Builder {
-            this.maxDownloadRecords = maxDownloadRecords
+            this.maxDownloadRecords = numberOfRecords
             return this
         }
 
         fun build(): FileDownloaderConfig {
             checkNotNull(context) { "Context cannot be null" }
             checkNotNull(directory) { "Directory cannot be null" }
-            check(directory!!.exists()) { "Directory must exists" }
-            check(directory!!.isDirectory) { "Directory parameter is not a directory"}
+            check(directory.exists()) { "Directory must exists" }
+            check(directory.isDirectory) { "Directory parameter is not a directory" }
+            check(directory.canRead()) { "Directory must be read enabled" }
+            check(directory.canWrite()) { "Directory must be write enabled" }
 
             timeout?.let {
                 check(it > 0) { "Timeout must be greater than zero milliseconds" }
             }
 
-            maxDownloadRecords?.let {
-                check(it > 0) { "maxDownloadRecords has to be greater than zero" }
-            }
+            check(maxDownloadRecords > 0) { "maxDownloadRecords has to be greater than zero" }
 
             return FileDownloaderConfig(this)
         }

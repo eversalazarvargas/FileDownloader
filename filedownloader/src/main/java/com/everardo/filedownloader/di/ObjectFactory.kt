@@ -1,9 +1,13 @@
 package com.everardo.filedownloader.di
 
 import android.content.Context
+import android.os.Looper
 import com.everardo.filedownloader.DownloadRegistry
+import com.everardo.filedownloader.FileDownloader
 import com.everardo.filedownloader.Notifier
 import com.everardo.filedownloader.NotifierImpl
+import com.everardo.filedownloader.data.repository.DownloadRepository
+import com.everardo.filedownloader.data.repository.DownloadRepositoryImpl
 
 internal interface ObjectFactory {
 
@@ -11,18 +15,21 @@ internal interface ObjectFactory {
         lateinit var instance: ObjectFactory
     }
 
-    val downloadRegistry: DownloadRegistry
     val context: Context
+    val uiThreadLooper: Looper
+    val downloadRegistry: DownloadRegistry
+    val downloadRepository: DownloadRepository
 
-    fun getNotifier(): Notifier
+    fun getNotifier(fileDownloader: FileDownloader): Notifier
 }
 
 internal class ObjectFactoryImpl(override val context: Context): ObjectFactory {
 
-    override val downloadRegistry: DownloadRegistry
-        get() = DownloadRegistry(context)
+    override val uiThreadLooper: Looper by lazy { Looper.getMainLooper() }
+    override val downloadRegistry: DownloadRegistry by lazy { DownloadRegistry(context) }
+    override val downloadRepository: DownloadRepository by lazy { DownloadRepositoryImpl() }
 
-    override fun getNotifier(): Notifier = NotifierImpl()
+    override fun getNotifier(fileDownloader: FileDownloader): Notifier = NotifierImpl(fileDownloader, downloadRepository, uiThreadLooper)
 }
 
 internal fun getObjectFactory() = ObjectFactory.instance
