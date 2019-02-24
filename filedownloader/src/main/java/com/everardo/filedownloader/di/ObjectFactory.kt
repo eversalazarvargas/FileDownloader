@@ -20,7 +20,6 @@ internal interface ObjectFactory {
     }
 
     val context: Context
-    val uiThreadLooper: Looper
     val downloadRegistry: DownloadRegistry
     val downloadRepository: DownloadRepository
     val downloadManager: DownloadManager
@@ -31,13 +30,12 @@ internal interface ObjectFactory {
 
 internal class ObjectFactoryImpl(override val context: Context): ObjectFactory {
 
-    override val uiThreadLooper: Looper by lazy { Looper.getMainLooper() }
     override val downloadRegistry: DownloadRegistry by lazy { DownloadRegistry(context) }
     override val downloadRepository: DownloadRepository by lazy { DownloadRepositoryImpl() }
     override val downloadManager: DownloadManager by lazy { DownloadManagerImpl(downloadRepository) }
     override val scheduler: Scheduler by lazy { SchedulerImpl(context) }
 
-    override fun getNotifier(fileDownloader: FileDownloader): Notifier = NotifierImpl(fileDownloader, downloadRepository, uiThreadLooper)
+    override fun getNotifier(fileDownloader: FileDownloader): Notifier = NotifierImpl(context, fileDownloader, downloadRepository)
 }
 
 internal fun getObjectFactory() = ObjectFactory.instance

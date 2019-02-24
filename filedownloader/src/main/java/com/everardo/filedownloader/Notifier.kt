@@ -1,10 +1,10 @@
 package com.everardo.filedownloader
 
+import android.content.Context
 import android.database.ContentObserver
 import android.net.Uri
 import android.os.Bundle
 import android.os.Handler
-import android.os.Looper
 import android.os.Message
 import android.support.v4.util.ArrayMap
 import com.everardo.filedownloader.data.repository.DataStatusChange
@@ -15,7 +15,7 @@ internal interface Notifier {
     fun removeObserver(token: DownloadToken)
 }
 
-internal class NotifierImpl(private val fileDownloader: FileDownloader, private val repository: DownloadRepository, uiThreadLooper: Looper) : Notifier {
+internal class NotifierImpl(private val context: Context, private val fileDownloader: FileDownloader, private val repository: DownloadRepository) : Notifier {
 
     companion object {
         const val NOTIFY_STATUS_MSG = 1
@@ -23,7 +23,7 @@ internal class NotifierImpl(private val fileDownloader: FileDownloader, private 
     }
 
     private val listenersMap = ArrayMap<DownloadToken, DownloadListener>()
-    private val handler = object : Handler(uiThreadLooper) {
+    private val handler = object : Handler(context.mainLooper) {
         override fun handleMessage(msg: Message) {
             if (msg.what == NOTIFY_STATUS_MSG) {
                 val dataStatusChange = msg.data[DATA_EXTRA] as DataStatusChange

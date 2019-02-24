@@ -51,7 +51,7 @@ class NotifierTest {
 
         whenever(repository.getDataStatusChange(anySafe(Uri::class.java))).thenReturn(dataStatusChange)
 
-        notifier = NotifierImpl(fileDownloader, repository, context.mainLooper)
+        notifier = NotifierImpl(context, fileDownloader, repository)
     }
 
     @Test
@@ -67,6 +67,25 @@ class NotifierTest {
         notifier.addObserver(mock(DownloadToken::class.java), mock(DownloadListener::class.java))
 
         verify(repository, times(1)).registerContentObserver(anySafe(NotifierImpl.StatusContentObserver::class.java))
+    }
+
+    @Test
+    fun unregisterContentObserver() {
+        notifier.addObserver(token, listener)
+        notifier.removeObserver(token)
+
+        verify(repository, times(1)).registerContentObserver(anySafe(NotifierImpl.StatusContentObserver::class.java))
+        verify(repository, times(1)).unregisterContentObserver(anySafe(NotifierImpl.StatusContentObserver::class.java))
+    }
+
+    @Test
+    fun notUnregisterContentObserver() {
+        notifier.addObserver(token, listener)
+        notifier.addObserver(mock(DownloadToken::class.java), mock(DownloadListener::class.java))
+        notifier.removeObserver(token)
+
+        verify(repository, times(1)).registerContentObserver(anySafe(NotifierImpl.StatusContentObserver::class.java))
+        verify(repository, times(0)).unregisterContentObserver(anySafe(NotifierImpl.StatusContentObserver::class.java))
     }
 
     @Test
@@ -97,5 +116,84 @@ class NotifierTest {
 
         latch.await(1, TimeUnit.SECONDS)
         assertEquals(1, listenerInvokedTimes)
+    }
+
+    @Test
+    fun twoListenersNotified() {
+        val otherToken = token.copy(directoryPath = "otherpath")
+        val dataStatusChange2 = DataStatusChange(Status.COMPLETED, otherToken, 100.0, mock(Error::class.java))
+        val uri2 = Uri.parse("http://authority/otherpath")
+
+        whenever(repository.getDataStatusChange(uri)).thenReturn(dataStatusChange)
+        whenever(repository.getDataStatusChange(uri2)).thenReturn(dataStatusChange2)
+
+        val latch = CountDownLatch(2)
+        var listenerInvokedTimes = 0
+
+        val listener = object: DownloadListener {
+            override fun onChange(status: StatusEvent) {
+                listenerInvokedTimes++
+
+                assertEquals(Status.IN_PROGRESS, status.status)
+                assertEquals(token, status.token)
+                assertEquals("filename", status.fileName)
+                assertEquals(5.0, status.progress, 0.05)
+                latch.countDown()
+            }
+        }
+
+        val listener2 = object: DownloadListener {
+            override fun onChange(status: StatusEvent) {
+                listenerInvokedTimes++
+
+                assertEquals(Status.COMPLETED, status.status)
+                assertEquals(otherToken, status.token)
+                assertEquals("filename", status.fileName)
+                assertEquals(100.0, status.progress, 0.05)
+                latch.countDown()
+            }
+        }
+
+        var observer: ContentObserver? = null
+        doAnswer(object: Answer<Unit> {
+            override fun answer(invocation: InvocationOnMock) {
+                observer = invocation.getArgument(0)
+            }
+        }).`when`(repository).registerContentObserver(anySafe(ContentObserver::class.java))
+
+        notifier.addObserver(token, listener)
+        notifier.addObserver(otherToken, listener2)
+        observer!!.onChange(true, uri)
+        observer!!.onChange(true, uri2)
+
+        latch.await(1, TimeUnit.SECONDS)
+        assertEquals(2, listenerInvokedTimes)
+    }
+
+    @Test
+    fun listenerNotInMap() {
+        val latch = CountDownLatch(1)
+        var listenerInvokedTimes = 0
+
+        val listener = object: DownloadListener {
+            override fun onChange(status: StatusEvent) {
+                listenerInvokedTimes++
+                latch.countDown()
+            }
+        }
+
+        var observer: ContentObserver? = null
+        doAnswer(object: Answer<Unit> {
+            override fun answer(invocation: InvocationOnMock) {
+                observer = invocation.getArgument(0)
+            }
+        }).`when`(repository).registerContentObserver(anySafe(ContentObserver::class.java))
+
+        val otherToken = token.copy(directoryPath = "otherpath")
+        notifier.addObserver(otherToken, listener)
+        observer!!.onChange(true, uri)
+
+        latch.await(1, TimeUnit.SECONDS)
+        assertEquals(0, listenerInvokedTimes)
     }
 }
