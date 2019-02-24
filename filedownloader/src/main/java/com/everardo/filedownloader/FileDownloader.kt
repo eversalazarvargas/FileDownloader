@@ -1,43 +1,45 @@
 package com.everardo.filedownloader
 
 import android.net.Uri
-import com.everardo.filedownloader.service.DownloadService
 import java.io.File
 
 
+@OpenForTesting
 class FileDownloader(private val config: FileDownloaderConfig) {
 
     private val objectFactory by lazy { config.objectFactory }
-    private val context by lazy { objectFactory.context }
-    private val notifier by lazy { objectFactory.getNotifier() }
+    private val notifier by lazy { objectFactory.getNotifier(this) }
+    private val downloadManager by lazy { objectFactory.downloadManager }
+    private val scheduler by lazy { objectFactory.scheduler }
     val downloadRegistry by lazy { objectFactory.downloadRegistry }
 
     fun uri(uri: Uri): RequestCreator = RequestCreator(this, uri)
 
     //TODO set visibility access to "internal"
-    @Synchronized
     protected fun download(uri: Uri, fileName: String, listener: DownloadListener?, timeout: Long? = null, directory: File? = null): DownloadToken {
-        val token = DownloadToken(uri, fileName)
+        val directoryParam = directory ?: config.directory
+        val directoryPath = directoryParam.path
+
+        val token = DownloadToken(uri, directoryPath, fileName)
         listener?.let {
             notifier.addObserver(token, it)
         }
 
-        val directoryParam = directory ?: config.directory
-        val directoryPath = directoryParam.path
-
-        context.startService(DownloadService.getDownloadIntent(context, token, timeout ?: config.timeout, directoryPath))
+        scheduler.download(token, timeout ?: config.timeout)
 
         return token
     }
 
-    @Synchronized
-    fun cancel(downloadToken: DownloadToken) {
-        context.startService(DownloadService.getCancelIntent(context, downloadToken))
+    fun cancel(token: DownloadToken) {
+        downloadManager.cancel(token)
     }
 
-    @Synchronized
-    fun removeListener(downloadToken: DownloadToken) {
-        notifier.removeObserver(downloadToken)
+    fun retry(token: DownloadToken) {
+        scheduler.retry(token)
+    }
+
+    fun removeListener(token: DownloadToken) {
+        notifier.removeObserver(token)
     }
 
     class RequestCreator internal constructor(private val fileDownloader: FileDownloader, private val uri: Uri) {
@@ -70,6 +72,13 @@ class FileDownloader(private val config: FileDownloaderConfig) {
             check(fileName.isNotEmpty()) { "Filename cannot be empty" }
             timeout?.let {
                 check(it > 0) { "Timeout must be greater than zero milliseconds" }
+            }
+
+            directory?.let {
+                check(it.exists()) { "Directory must exists" }
+                check(it.isDirectory) { "Directory parameter is not a directory" }
+                check(it.canRead()) { "Directory must be read enabled" }
+                check(it.canWrite()) { "Directory must be write enabled" }
             }
 
             return fileDownloader.download(uri, fileName, listener, timeout, directory)
