@@ -5,6 +5,6 @@ import android.os.Parcelable
 import kotlinx.android.parcel.Parcelize
 
 @Parcelize
-data class DownloadToken(private val uri: Uri, private val fileName: String) : Parcelable {
+data class DownloadToken(internal val uri: Uri, private val directoryPath: String, internal val fileName: String) : Parcelable {
     private val timestamp: Long = System.currentTimeMillis()
 }

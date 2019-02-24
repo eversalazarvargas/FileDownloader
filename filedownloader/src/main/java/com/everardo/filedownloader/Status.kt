@@ -1,7 +1,7 @@
 package com.everardo.filedownloader
 
 enum class Status {
-    NOT_STARTED,
+    PENDING,
     COMPLETED,
     IN_PROGRESS,
     CANCELLED,

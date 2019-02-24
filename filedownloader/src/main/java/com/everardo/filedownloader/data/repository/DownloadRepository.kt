@@ -21,6 +21,7 @@ internal interface StatusChangeListener {
 @Parcelize
 internal data class DataStatusChange(val status: Status,
                                      val token: DownloadToken,
+                                     val progress: Double,
                                      val error: Error? = null): Parcelable
 
 /**

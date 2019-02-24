@@ -1,9 +1,10 @@
 package com.everardo.filedownloader
 
 import android.content.Context
-import android.content.Intent
 import android.net.Uri
 import com.everardo.filedownloader.di.ObjectFactory
+import com.everardo.filedownloader.manager.DownloadManager
+import com.everardo.filedownloader.service.Scheduler
 import com.everardo.filedownloader.util.anySafe
 import org.junit.Before
 import org.junit.Test
@@ -13,7 +14,6 @@ import org.mockito.Mockito.`when` as whenever
 import org.mockito.MockitoAnnotations
 import java.io.File
 import java.lang.IllegalStateException
-import java.net.URI
 
 class FileDownloaderTest {
 
@@ -28,6 +28,12 @@ class FileDownloaderTest {
 
     @Mock
     private lateinit var notifier: Notifier
+
+    @Mock
+    private lateinit var downloadManager: DownloadManager
+
+    @Mock
+    private lateinit var scheduler: Scheduler
 
     @Mock
     private lateinit var uri: Uri
@@ -45,10 +51,16 @@ class FileDownloaderTest {
     fun setup() {
         MockitoAnnotations.initMocks(this)
 
-        whenever(objectFactory.getNotifier()).thenReturn(notifier)
+        whenever(objectFactory.getNotifier(anySafe(FileDownloader::class.java))).thenReturn(notifier)
         whenever(objectFactory.context).thenReturn(context)
+        whenever(objectFactory.downloadManager).thenReturn(downloadManager)
+        whenever(objectFactory.scheduler).thenReturn(scheduler)
         whenever(config.objectFactory).thenReturn(objectFactory)
         whenever(directory.path).thenReturn("filepath")
+        whenever(directory.exists()).thenReturn(true)
+        whenever(directory.isDirectory).thenReturn(true)
+        whenever(directory.canRead()).thenReturn(true)
+        whenever(directory.canWrite()).thenReturn(true)
         whenever(config.directory).thenReturn(directory)
         whenever(config.timeout).thenReturn(10)
 
@@ -105,6 +117,15 @@ class FileDownloaderTest {
     }
 
     @Test
+    fun downloadServiceStarted() {
+        fileDownloader.uri(uri)
+                .fileName("filename")
+                .download()
+
+        verify(scheduler).download(anySafe(DownloadToken::class.java), anyLong())
+    }
+
+    @Test
     fun downloadDefaultParams() {
         fileDownloader.uri(uri)
                 .fileName("filename")
@@ -116,8 +137,6 @@ class FileDownloaderTest {
 
     @Test
     fun downloadOverrideParams() {
-        whenever(directory.toURI()).thenReturn(mock(URI::class.java))
-
         fileDownloader.uri(uri)
                 .fileName("filename")
                 .directory(directory)
@@ -139,6 +158,13 @@ class FileDownloaderTest {
     fun cancel() {
         fileDownloader.cancel(mock(DownloadToken::class.java))
 
-        verify(context).startService(anySafe(Intent::class.java))
+        verify(downloadManager).cancel(anySafe(DownloadToken::class.java))
+    }
+
+    @Test
+    fun retry() {
+        fileDownloader.retry(mock(DownloadToken::class.java))
+
+        verify(scheduler).retry(anySafe(DownloadToken::class.java))
     }
 }

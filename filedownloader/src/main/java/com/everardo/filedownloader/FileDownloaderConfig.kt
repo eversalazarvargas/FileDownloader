@@ -7,10 +7,15 @@ import java.io.File
 
 class FileDownloaderConfig private constructor(builder: Builder) {
 
+    companion object {
+        const val DEFAULT_TIMEOUT = 3L * 60 * 1000 // 3 minutes
+        const val DEFAULT_MAX_RECORDS = 10_000
+    }
+
     internal val objectFactory: ObjectFactory
 
     val directory: File = builder.directory
-    val timeout: Long? = builder.timeout
+    val timeout: Long = builder.timeout
     val maxDownloadRecords: Int = builder.maxDownloadRecords
 
     init {
@@ -26,10 +31,10 @@ class FileDownloaderConfig private constructor(builder: Builder) {
         internal lateinit var directory: File
             private set
 
-        internal var timeout: Long? = null
+        internal var timeout: Long = DEFAULT_TIMEOUT
             private set
 
-        internal var maxDownloadRecords: Int = 10000
+        internal var maxDownloadRecords: Int = DEFAULT_MAX_RECORDS
             private set
 
         fun context(context: Context): Builder {
