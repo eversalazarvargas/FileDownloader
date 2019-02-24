@@ -4,6 +4,7 @@ import android.net.Uri
 import java.io.File
 
 
+@OpenForTesting
 class FileDownloader(private val config: FileDownloaderConfig) {
 
     private val objectFactory by lazy { config.objectFactory }

@@ -1,5 +1,7 @@
 package com.everardo.filedownloader
 
+import android.database.ContentObserver
+import android.net.Uri
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -7,14 +9,13 @@ import android.os.Message
 import android.support.v4.util.ArrayMap
 import com.everardo.filedownloader.data.repository.DataStatusChange
 import com.everardo.filedownloader.data.repository.DownloadRepository
-import com.everardo.filedownloader.data.repository.StatusChangeListener
 
 internal interface Notifier {
     fun addObserver(token: DownloadToken, listener: DownloadListener)
     fun removeObserver(token: DownloadToken)
 }
 
-internal class NotifierImpl(private val fileDownloader: FileDownloader, downloadRepository: DownloadRepository, uiThreadLooper: Looper) : Notifier {
+internal class NotifierImpl(private val fileDownloader: FileDownloader, private val repository: DownloadRepository, uiThreadLooper: Looper) : Notifier {
 
     companion object {
         const val NOTIFY_STATUS_MSG = 1
@@ -30,19 +31,26 @@ internal class NotifierImpl(private val fileDownloader: FileDownloader, download
             }
         }
     }
+    private val statusContentObserver: StatusContentObserver
 
     init {
-        downloadRepository.observe(StatusChangeListenerImpl(handler))
+        statusContentObserver = StatusContentObserver(handler, repository)
     }
 
     @Synchronized
     override fun addObserver(token: DownloadToken, listener: DownloadListener) {
+        if (listenersMap.isEmpty) {
+            repository.registerContentObserver(statusContentObserver)
+        }
         listenersMap[token] = listener
     }
 
     @Synchronized
     override fun removeObserver(token: DownloadToken) {
-        TODO("not implemented") //To change body of created functions use File | Settings | File Templates.
+        listenersMap.remove(token)
+        if (listenersMap.isEmpty) {
+            repository.unregisterContentObserver(statusContentObserver)
+        }
     }
 
     @Synchronized
@@ -58,8 +66,10 @@ internal class NotifierImpl(private val fileDownloader: FileDownloader, download
         }
     }
 
-    internal class StatusChangeListenerImpl(private val handler: Handler) : StatusChangeListener {
-        override fun onStatusChange(status: DataStatusChange) {
+    internal class StatusContentObserver(private val handler: Handler, private val downloadRepository: DownloadRepository) : ContentObserver(null) {
+        override fun onChange(selfChange: Boolean, uri: Uri) {
+            val status = downloadRepository.getDataStatusChange(uri)
+
             val bundle = Bundle()
             bundle.putParcelable(DATA_EXTRA, status)
             val msg = handler.obtainMessage(NOTIFY_STATUS_MSG)

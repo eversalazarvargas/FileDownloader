@@ -3,6 +3,7 @@ package com.everardo.filedownloader
 import android.os.Parcelable
 import kotlinx.android.parcel.Parcelize
 
+@OpenForTesting
 @Parcelize
 data class Error(val code: Code, val httpErrorCode: Int? = 0): Parcelable {
 
