@@ -1,7 +1,6 @@
 package com.everardo.filedownloader.di
 
 import android.content.Context
-import android.os.Looper
 import com.everardo.filedownloader.DownloadRegistry
 import com.everardo.filedownloader.FileDownloader
 import com.everardo.filedownloader.Notifier
