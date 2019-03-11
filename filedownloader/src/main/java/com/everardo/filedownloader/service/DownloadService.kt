@@ -13,6 +13,7 @@ import android.os.Message
 import com.everardo.filedownloader.DownloadToken
 import com.everardo.filedownloader.di.getObjectFactory
 import com.everardo.filedownloader.manager.DownloadManager
+import java.util.concurrent.ThreadPoolExecutor
 
 
 internal class DownloadService: Service() {
@@ -40,9 +41,11 @@ internal class DownloadService: Service() {
 
     private lateinit var handler: Handler
     private lateinit var downloadManager: DownloadManager
+    private lateinit var threadExecutor: ThreadPoolExecutor
 
     override fun onCreate() {
         downloadManager = getObjectFactory().downloadManager
+        threadExecutor = getObjectFactory().getNewThreadExecutor()
 
         HandlerThread("ServiceStartArguments").apply {
             start()
@@ -68,20 +71,47 @@ internal class DownloadService: Service() {
         return START_REDELIVER_INTENT
     }
 
+    override fun onDestroy() {
+        threadExecutor.shutdown()
+        super.onDestroy()
+    }
+
     inner class ServiceHandler(looper: Looper): Handler(looper) {
         override fun handleMessage(msg: Message) {
             when(msg.what) {
                 ADD_PENDING -> {
-                    //TODO store pending in db
+                    // store pending in db
                     val data = msg.data
-                    downloadManager.addPendingDownload(data.getParcelable(TOKEN_EXTRA) as DownloadToken)
+                    val token: DownloadToken = data.getParcelable(TOKEN_EXTRA) as DownloadToken
+                    downloadManager.addPendingDownload(token)
 
-                    // TODO submit download to Executor
+                    // submit download to Executor
+                    threadExecutor.execute(DownloadTask(this, downloadManager, token, data.getLong(TIMEOUT_EXTRA), msg.arg1))
                 }
                 TASK_FINISHED -> {
-                    //TODO use db manager to check if there are still pending downloads
-                    // TODO if not then stopSelf()
+                    // use db manager to check if there are still pending downloads
+                    // if not then stopSelf()
+                    if (!downloadManager.hasPendingDownloads()) {
+                        stopSelf(msg.arg1)
+                    }
                 }
+            }
+        }
+    }
+
+    class DownloadTask(private val serviceHandler: ServiceHandler,
+                       private val downloadManager: DownloadManager,
+                       private val token: DownloadToken,
+                       private val timeout: Long,
+                       private val startId: Int) : Runnable {
+
+        override fun run() {
+            downloadManager.download(token, timeout)
+            serviceHandler.obtainMessage()?.also { msg ->
+                msg.what = TASK_FINISHED
+                msg.arg1 = startId
+
+                serviceHandler.sendMessage(msg)
             }
         }
     }
