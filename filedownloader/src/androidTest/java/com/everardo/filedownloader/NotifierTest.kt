@@ -3,16 +3,17 @@ package com.everardo.filedownloader
 import android.content.Context
 import android.database.ContentObserver
 import android.net.Uri
-import android.support.test.InstrumentationRegistry
+import androidx.test.core.app.ApplicationProvider.getApplicationContext
+import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.everardo.filedownloader.data.repository.DataStatusChange
 import com.everardo.filedownloader.data.repository.DownloadRepository
 import com.everardo.filedownloader.testutil.anySafe
 import org.junit.Assert.assertEquals
 import org.junit.Before
 import org.junit.Test
+import org.junit.runner.RunWith
 import org.mockito.Mock
 import org.mockito.Mockito.doAnswer
-import org.mockito.Mockito.`when` as whenever
 import org.mockito.Mockito.mock
 import org.mockito.Mockito.times
 import org.mockito.Mockito.verify
@@ -21,7 +22,9 @@ import org.mockito.invocation.InvocationOnMock
 import org.mockito.stubbing.Answer
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
+import org.mockito.Mockito.`when` as whenever
 
+@RunWith(AndroidJUnit4::class)
 class NotifierTest {
 
     @Mock
@@ -47,7 +50,7 @@ class NotifierTest {
         token = DownloadToken(uri, "path", "filename")
         dataStatusChange = DataStatusChange(Status.IN_PROGRESS, token, 5.0, mock(Error::class.java))
 
-        context = InstrumentationRegistry.getTargetContext()
+        context = getApplicationContext()
 
         whenever(repository.getDataStatusChange(anySafe(Uri::class.java))).thenReturn(dataStatusChange)
 

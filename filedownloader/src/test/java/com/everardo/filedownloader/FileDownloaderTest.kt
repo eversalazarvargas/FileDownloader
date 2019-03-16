@@ -165,6 +165,6 @@ class FileDownloaderTest {
     fun retry() {
         fileDownloader.retry(mock(DownloadToken::class.java))
 
-        verify(scheduler).retry(anySafe(DownloadToken::class.java))
+        verify(scheduler).retry(anySafe(DownloadToken::class.java), anyLong())
     }
 }
