@@ -21,9 +21,11 @@ internal class DownloadService: Service() {
     companion object {
         const val TOKEN_EXTRA = "DownloadServiceTokenExtra"
         const val TIMEOUT_EXTRA = "DownloadServiceTimeoutExtra"
+        const val RETRY_EXTRA = "DownloadServiceRetryExtra"
 
-        private const val ADD_PENDING = 1
-        private const val TASK_FINISHED = 2
+        private const val ADD_PENDING_MSG = 1
+        private const val TASK_FINISHED_MSG = 2
+        private const val RETRY_MSG = 3
 
         fun getDownloadIntent(context: Context, downloadToken: DownloadToken, timeout: Long): Intent {
             val intent = Intent(context, DownloadService::class.java)
@@ -32,9 +34,11 @@ internal class DownloadService: Service() {
             return intent
         }
 
-        fun getRetryIntent(context: Context, downloadToken: DownloadToken): Intent {
+        fun getRetryIntent(context: Context, downloadToken: DownloadToken, timeout: Long): Intent {
             val intent = Intent(context, DownloadService::class.java)
-            //TODO make extras parceable and add extras
+            intent.putExtra(RETRY_EXTRA, true)
+            intent.putExtra(TOKEN_EXTRA, downloadToken)
+            intent.putExtra(TIMEOUT_EXTRA, timeout)
             return intent
         }
     }
@@ -57,7 +61,7 @@ internal class DownloadService: Service() {
 
     override fun onStartCommand(intent: Intent, flags: Int, startId: Int): Int {
         handler.obtainMessage()?.also { msg ->
-            msg.what = ADD_PENDING
+            msg.what = if (intent.getBooleanExtra(RETRY_EXTRA, false)) RETRY_MSG else ADD_PENDING_MSG
             msg.arg1 = startId
             Bundle().also { bundle ->
                 bundle.putParcelable(TOKEN_EXTRA, intent.getParcelableExtra(TOKEN_EXTRA))
@@ -79,7 +83,7 @@ internal class DownloadService: Service() {
     inner class ServiceHandler(looper: Looper): Handler(looper) {
         override fun handleMessage(msg: Message) {
             when(msg.what) {
-                ADD_PENDING -> {
+                ADD_PENDING_MSG -> {
                     // store pending in db
                     val data = msg.data
                     val token: DownloadToken = data.getParcelable(TOKEN_EXTRA) as DownloadToken
@@ -88,7 +92,13 @@ internal class DownloadService: Service() {
                     // submit download to Executor
                     threadExecutor.execute(DownloadTask(this, downloadManager, token, data.getLong(TIMEOUT_EXTRA), msg.arg1))
                 }
-                TASK_FINISHED -> {
+                RETRY_MSG -> {
+                    val data = msg.data
+                    val token: DownloadToken = data.getParcelable(TOKEN_EXTRA) as DownloadToken
+                    // submit download to Executor
+                    threadExecutor.execute(DownloadTask(this, downloadManager, token, data.getLong(TIMEOUT_EXTRA), msg.arg1))
+                }
+                TASK_FINISHED_MSG -> {
                     // use db manager to check if there are still pending downloads
                     // if not then stopSelf()
                     if (!downloadManager.hasPendingDownloads()) {
@@ -108,7 +118,7 @@ internal class DownloadService: Service() {
         override fun run() {
             downloadManager.download(token, timeout)
             serviceHandler.obtainMessage()?.also { msg ->
-                msg.what = TASK_FINISHED
+                msg.what = TASK_FINISHED_MSG
                 msg.arg1 = startId
 
                 serviceHandler.sendMessage(msg)

@@ -26,6 +26,7 @@ import java.util.concurrent.ThreadPoolExecutor
 import java.util.concurrent.TimeUnit
 import org.mockito.Mockito.`when` as whenever
 import com.everardo.filedownloader.service.DownloadService.DownloadTask
+import org.mockito.Mockito.never
 import org.mockito.Mockito.verify
 
 
@@ -107,6 +108,37 @@ class DownloadServiceTest {
         mServiceRule.startService(intent)
         latch.await(1, TimeUnit.SECONDS)
         verify(downloadManager).download(token, 100L)
+        verify(downloadManager).addPendingDownload(token)
+        latchTaskFinished.await(1, TimeUnit.SECONDS)
+        verify(downloadManager).hasPendingDownloads()
+    }
+
+    @Test
+    fun retry() {
+
+        val latch = CountDownLatch(1)
+        val latchTaskFinished = CountDownLatch(1)
+
+        doAnswer(object: Answer<Unit> {
+            override fun answer(invocation: InvocationOnMock) {
+                val task = invocation.getArgument<DownloadTask>(0)
+                task.run()
+                latch.countDown()
+            }
+        }).`when`(threadExecutor).execute(anySafe(DownloadTask::class.java))
+
+        doAnswer(object: Answer<Boolean> {
+            override fun answer(invocation: InvocationOnMock): Boolean {
+                latchTaskFinished.countDown()
+                return false
+            }
+        }).`when`(downloadManager).hasPendingDownloads()
+
+        val intent = DownloadService.getRetryIntent(context, token, 100L)
+        mServiceRule.startService(intent)
+        latch.await(1, TimeUnit.SECONDS)
+        verify(downloadManager).download(token, 100L)
+        verify(downloadManager, never()).addPendingDownload(anySafe(DownloadToken::class.java))
         latchTaskFinished.await(1, TimeUnit.SECONDS)
         verify(downloadManager).hasPendingDownloads()
     }
