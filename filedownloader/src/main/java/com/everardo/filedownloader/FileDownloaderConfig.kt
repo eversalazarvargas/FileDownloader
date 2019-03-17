@@ -5,6 +5,7 @@ import com.everardo.filedownloader.di.ObjectFactory
 import com.everardo.filedownloader.di.ObjectFactoryImpl
 import java.io.File
 
+@OpenForTesting
 class FileDownloaderConfig private constructor(builder: Builder) {
 
     companion object {
