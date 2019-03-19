@@ -3,6 +3,8 @@ package com.everardo.filedownloader
 import android.content.Context
 import com.everardo.filedownloader.di.ObjectFactory
 import com.everardo.filedownloader.di.ObjectFactoryImpl
+import com.everardo.filedownloader.service.DefaultDownloader
+import com.everardo.filedownloader.service.Downloader
 import java.io.File
 
 @OpenForTesting
@@ -20,7 +22,8 @@ class FileDownloaderConfig private constructor(builder: Builder) {
     val maxDownloadRecords: Int = builder.maxDownloadRecords
 
     init {
-        ObjectFactory.instance = ObjectFactoryImpl(builder.context)
+        ObjectFactory.instance = ObjectFactoryImpl(builder.context, builder.downloader
+                ?: DefaultDownloader())
         objectFactory = ObjectFactory.instance
     }
 
@@ -36,6 +39,9 @@ class FileDownloaderConfig private constructor(builder: Builder) {
             private set
 
         internal var maxDownloadRecords: Int = DEFAULT_MAX_RECORDS
+            private set
+
+        internal var downloader: Downloader? = null
             private set
 
         fun context(context: Context): Builder {
@@ -62,6 +68,11 @@ class FileDownloaderConfig private constructor(builder: Builder) {
          */
         fun keepLastDownloadRecords(numberOfRecords: Int): Builder {
             this.maxDownloadRecords = numberOfRecords
+            return this
+        }
+
+        fun downloader(downloader: Downloader): Builder {
+            this.downloader = downloader
             return this
         }
 

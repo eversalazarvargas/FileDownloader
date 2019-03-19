@@ -1,6 +1,7 @@
 package com.everardo.filedownloader
 
 import android.content.Context
+import com.everardo.filedownloader.service.Downloader
 import org.junit.Assert.assertEquals
 import org.junit.Before
 import org.junit.Test
@@ -25,6 +26,7 @@ class FileDownloaderConfigTest {
     fun simpleConfig() {
         val context = mock(Context::class.java)
         val directory = mock(File::class.java)
+        val downloader = mock(Downloader::class.java)
         whenever(directory.exists()).thenReturn(true)
         whenever(directory.isDirectory).thenReturn(true)
         whenever(directory.canRead()).thenReturn(true)
@@ -35,6 +37,7 @@ class FileDownloaderConfigTest {
                 .filesDirectory(directory)
                 .timeout(20)
                 .keepLastDownloadRecords(100)
+                .downloader(downloader)
                 .build()
 
         assertEquals(directory, config.directory)
