@@ -15,6 +15,7 @@ import kotlinx.android.parcel.Parcelize
  */
 @OpenForTesting
 internal interface DownloadRepository {
+    fun addPendingDownload(token: DownloadToken)
     fun registerContentObserver(contentObserver: ContentObserver)
     fun unregisterContentObserver(contentObserver: ContentObserver)
     fun getDataStatusChange(uri: Uri): DataStatusChange
@@ -30,6 +31,10 @@ internal data class DataStatusChange(val status: Status,
  * @author everardo.salazar on 2/22/19
  */
 internal class DownloadRepositoryImpl: DownloadRepository {
+    override fun addPendingDownload(token: DownloadToken) {
+        TODO("not implemented") //To change body of created functions use File | Settings | File Templates.
+    }
+
     override fun registerContentObserver(contentObserver: ContentObserver) {
         TODO("not implemented") //To change body of created functions use File | Settings | File Templates.
     }
