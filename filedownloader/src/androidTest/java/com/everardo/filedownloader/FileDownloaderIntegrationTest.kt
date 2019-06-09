@@ -135,8 +135,8 @@ class FileDownloaderIntegrationTest {
 
         fileDownloader.uri(Uri.parse("https://www.google.com"))
                 .fileName("file1")
-                .listener(object: DownloadListener {
-                    override fun onChange(status: StatusEvent) {
+                .listener(object: AbstractDownloadListener() {
+                    override fun onCompleted(status: StatusEvent) {
                         assertEquals("file1", status.fileName)
                         assertEquals(Status.COMPLETED, status.status)
                         assertEquals(1.0, status.progress, 0.05)
@@ -148,8 +148,8 @@ class FileDownloaderIntegrationTest {
 
         fileDownloader.uri(Uri.parse("https://www.google.com/subpath"))
                 .fileName("file2")
-                .listener(object: DownloadListener {
-                    override fun onChange(status: StatusEvent) {
+                .listener(object: AbstractDownloadListener() {
+                    override fun onError(status: StatusEvent) {
                         assertEquals("file2", status.fileName)
                         assertEquals(Status.ERROR, status.status)
                         assertEquals(0.5, status.progress, 0.05)

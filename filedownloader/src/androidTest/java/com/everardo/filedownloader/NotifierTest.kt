@@ -96,8 +96,9 @@ class NotifierTest {
         val latch = CountDownLatch(1)
         var listenerInvokedTimes = 0
 
-        val listener = object: DownloadListener {
-            override fun onChange(status: StatusEvent) {
+        val listener = object: AbstractDownloadListener() {
+
+            override fun onProgress(status: StatusEvent) {
                 listenerInvokedTimes++
 
                 assertEquals(token, status.token)
@@ -133,8 +134,9 @@ class NotifierTest {
         val latch = CountDownLatch(2)
         var listenerInvokedTimes = 0
 
-        val listener = object: DownloadListener {
-            override fun onChange(status: StatusEvent) {
+        val listener = object: AbstractDownloadListener() {
+
+            override fun onProgress(status: StatusEvent) {
                 listenerInvokedTimes++
 
                 assertEquals(Status.IN_PROGRESS, status.status)
@@ -145,8 +147,9 @@ class NotifierTest {
             }
         }
 
-        val listener2 = object: DownloadListener {
-            override fun onChange(status: StatusEvent) {
+        val listener2 = object: AbstractDownloadListener() {
+
+            override fun onCompleted(status: StatusEvent) {
                 listenerInvokedTimes++
 
                 assertEquals(Status.COMPLETED, status.status)
@@ -178,8 +181,29 @@ class NotifierTest {
         val latch = CountDownLatch(1)
         var listenerInvokedTimes = 0
 
-        val listener = object: DownloadListener {
-            override fun onChange(status: StatusEvent) {
+        val listener = object: AbstractDownloadListener() {
+
+            override fun onCancelled(status: StatusEvent) {
+                listenerInvokedTimes++
+                latch.countDown()
+            }
+
+            override fun onCompleted(status: StatusEvent) {
+                listenerInvokedTimes++
+                latch.countDown()
+            }
+
+            override fun onError(status: StatusEvent) {
+                listenerInvokedTimes++
+                latch.countDown()
+            }
+
+            override fun onPending(status: StatusEvent) {
+                listenerInvokedTimes++
+                latch.countDown()
+            }
+
+            override fun onProgress(status: StatusEvent) {
                 listenerInvokedTimes++
                 latch.countDown()
             }

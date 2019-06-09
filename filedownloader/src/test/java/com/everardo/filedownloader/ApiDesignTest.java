@@ -108,17 +108,17 @@ public class ApiDesignTest {
                 DownloadToken token = new DownloadToken(mock(Uri.class), "some", "any");
                 DownloadListener listener = invocation.getArgument(2);
                 StatusEvent response = new StatusEvent(Status.COMPLETED, token, 1.0, fileDownloader, uri, fileName, null);
-                listener.onChange(response);
+                listener.onCompleted(response);
 
                 return token;
             }
         }).when(fileDownloader).download(any(Uri.class), anyString(), any(DownloadListener.class), anyLong(), any(File.class));
 
 
-        DownloadListener testListener = new DownloadListener() {
+        DownloadListener testListener = new AbstractDownloadListener() {
 
             @Override
-            public void onChange(@NotNull StatusEvent status) {
+            public void onCompleted(@NotNull StatusEvent status) {
                 assertEquals(Status.COMPLETED, status.getStatus());
                 assertEquals(1.0, status.getProgress(), 0.05);
             }
@@ -146,17 +146,17 @@ public class ApiDesignTest {
                 DownloadListener listener = invocation.getArgument(2);
                 Error error = new Error(Error.Code.HTTP_ERROR, 400);
                 StatusEvent response = new StatusEvent(Status.ERROR, token, 1.0, fileDownloader, uri, fileName, error);
-                listener.onChange(response);
+                listener.onError(response);
 
                 return token;
             }
         }).when(fileDownloader).download(any(Uri.class), anyString(), any(DownloadListener.class), anyLong(), any(File.class));
 
 
-        DownloadListener testListener = new DownloadListener() {
+        DownloadListener testListener = new AbstractDownloadListener() {
 
             @Override
-            public void onChange(@NotNull StatusEvent status) {
+            public void onError(@NotNull StatusEvent status) {
                 assertEquals(Status.ERROR, status.getStatus());
 
                 Error error = status.getError();
@@ -188,22 +188,25 @@ public class ApiDesignTest {
     public void cancel() {
         final String fileName = "myfile";
 
-        final DownloadListener testListener = new DownloadListener() {
+        final DownloadListener testListener = new AbstractDownloadListener() {
 
             @Override
-            public void onChange(@NotNull StatusEvent status) {
-                if (Status.IN_PROGRESS == status.getStatus()) {
-                    assertNotEquals(0, status.getProgress(), 0.05);
-                } else {
+            public void onProgress(@NotNull StatusEvent status) {
+                assertEquals(Status.IN_PROGRESS, status.getStatus());
+                assertNotEquals(0, status.getProgress(), 0.05);
+            }
 
-                    assertEquals(Status.CANCELLED, status.getStatus());
+            @Override
+            public void onCancelled(@NotNull StatusEvent status) {
+                super.onCancelled(status);
 
-                    // retry
-                    status.getDownloader().uri(status.getUri())
-                            .fileName(status.getFileName())
-                            .listener(this)
-                            .download();
-                }
+                assertEquals(Status.CANCELLED, status.getStatus());
+
+                // retry
+                status.getDownloader().uri(status.getUri())
+                        .fileName(status.getFileName())
+                        .listener(this)
+                        .download();
             }
         };
 
@@ -214,7 +217,7 @@ public class ApiDesignTest {
                 DownloadToken token = new DownloadToken(mock(Uri.class), "some", "any");
                 DownloadListener listener = invocation.getArgument(2);
                 StatusEvent response = new StatusEvent(Status.IN_PROGRESS, token, 0.5, fileDownloader, uri, fileName, null);
-                listener.onChange(response);
+                listener.onProgress(response);
 
                 return token;
             }
@@ -224,7 +227,7 @@ public class ApiDesignTest {
             @Override
             public Void answer(InvocationOnMock invocation) {
                 StatusEvent response = new StatusEvent(Status.CANCELLED, mock(DownloadToken.class), 0.5, fileDownloader, uri, fileName, null);
-                testListener.onChange(response);
+                testListener.onCancelled(response);
 
                 return null;
             }
@@ -262,18 +265,17 @@ public class ApiDesignTest {
             public DownloadToken answer(InvocationOnMock invocation) throws Throwable {
                 DownloadListener listener = invocation.getArgument(2);
                 StatusEvent response = new StatusEvent(Status.COMPLETED, token, 1.0, fileDownloader, uri, fileName, null);
-                listener.onChange(response);
+                listener.onCompleted(response);
 
                 return token;
             }
         }).when(fileDownloader).download(any(Uri.class), anyString(), any(DownloadListener.class), anyLong(), any(File.class));
 
 
-        DownloadListener testListener = new DownloadListener() {
-
+        DownloadListener testListener = new AbstractDownloadListener() {
 
             @Override
-            public void onChange(@NotNull StatusEvent status) {
+            public void onCompleted(@NotNull StatusEvent status) {
                 assertEquals(Status.COMPLETED, status.getStatus());
                 assertEquals(1.0, status.getProgress(), 0.05);
             }
