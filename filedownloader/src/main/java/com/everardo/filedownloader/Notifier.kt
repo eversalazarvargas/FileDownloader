@@ -61,7 +61,13 @@ internal class NotifierImpl(private val context: Context, private val fileDownlo
                 val statusEvent = with(dataStatusChange) {
                     StatusEvent(status, token, progress, fileDownloader, token.uri, token.fileName, error)
                 }
-                it.onChange(statusEvent)
+                when (statusEvent.status) {
+                    Status.PENDING -> it.onPending(statusEvent)
+                    Status.COMPLETED -> it.onCompleted(statusEvent)
+                    Status.IN_PROGRESS -> it.onProgress(statusEvent)
+                    Status.CANCELLED -> it.onCancelled(statusEvent)
+                    Status.ERROR -> it.onError(statusEvent)
+                }
             }
         }
     }
