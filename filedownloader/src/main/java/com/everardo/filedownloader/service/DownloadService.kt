@@ -89,12 +89,15 @@ internal class DownloadService: Service() {
                     val token: DownloadToken = data.getParcelable(TOKEN_EXTRA) as DownloadToken
                     downloadManager.addPendingDownload(token)
 
+                    //TODO improve performance by using Kotlin's co-routines instead of thread pools
                     // submit download to Executor
                     threadExecutor.execute(DownloadTask(this, downloadManager, token, data.getLong(TIMEOUT_EXTRA), msg.arg1))
                 }
                 RETRY_MSG -> {
                     val data = msg.data
                     val token: DownloadToken = data.getParcelable(TOKEN_EXTRA) as DownloadToken
+
+                    //TODO improve performance by using Kotlin's co-routines instead of thread pools
                     // submit download to Executor
                     threadExecutor.execute(DownloadTask(this, downloadManager, token, data.getLong(TIMEOUT_EXTRA), msg.arg1))
                 }
