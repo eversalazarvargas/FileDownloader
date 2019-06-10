@@ -7,6 +7,7 @@ import com.everardo.filedownloader.DownloadToken
 import com.everardo.filedownloader.Error
 import com.everardo.filedownloader.OpenForTesting
 import com.everardo.filedownloader.Status
+import com.everardo.filedownloader.downloader.DownloadResult
 import kotlinx.android.parcel.Parcelize
 
 
@@ -16,6 +17,8 @@ import kotlinx.android.parcel.Parcelize
 @OpenForTesting
 internal interface DownloadRepository {
     fun addPendingDownload(token: DownloadToken)
+    fun completeDownload(token: DownloadToken, result: DownloadResult)
+    fun hasPendingDownloads(): Boolean
     fun registerContentObserver(contentObserver: ContentObserver)
     fun unregisterContentObserver(contentObserver: ContentObserver)
     fun getDataStatusChange(uri: Uri): DataStatusChange
@@ -32,6 +35,14 @@ internal data class DataStatusChange(val status: Status,
  */
 internal class DownloadRepositoryImpl: DownloadRepository {
     override fun addPendingDownload(token: DownloadToken) {
+        TODO("not implemented") //To change body of created functions use File | Settings | File Templates.
+    }
+
+    override fun completeDownload(token: DownloadToken, result: DownloadResult) {
+        TODO("not implemented") //To change body of created functions use File | Settings | File Templates.
+    }
+
+    override fun hasPendingDownloads(): Boolean {
         TODO("not implemented") //To change body of created functions use File | Settings | File Templates.
     }
 

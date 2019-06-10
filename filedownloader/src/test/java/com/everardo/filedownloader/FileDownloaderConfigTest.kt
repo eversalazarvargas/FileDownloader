@@ -1,7 +1,7 @@
 package com.everardo.filedownloader
 
 import android.content.Context
-import com.everardo.filedownloader.service.Downloader
+import com.everardo.filedownloader.downloader.Downloader
 import org.junit.Assert.assertEquals
 import org.junit.Before
 import org.junit.Test

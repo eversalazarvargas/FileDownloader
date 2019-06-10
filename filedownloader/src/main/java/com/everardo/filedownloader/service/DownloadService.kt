@@ -99,6 +99,7 @@ internal class DownloadService: Service() {
 
                     //TODO improve performance by using Kotlin's co-routines instead of thread pools
                     // submit download to Executor
+                    //TODO we need to use Future and cancel the Task, when we do FileDownloader.cancel(token)
                     threadExecutor.execute(DownloadTask(this, downloadManager, token, data.getLong(TIMEOUT_EXTRA), msg.arg1))
                 }
                 TASK_FINISHED_MSG -> {
