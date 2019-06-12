@@ -12,7 +12,6 @@ internal interface DownloadManager {
     fun addPendingDownload(downloadToken: DownloadToken)
     fun download(downloadToken: DownloadToken, timeout: Long)
     fun hasPendingDownloads(): Boolean
-    fun cancel(downloadToken: DownloadToken)
 }
 
 internal class DownloadManagerImpl(private val downloadRepository: DownloadRepository,
@@ -24,19 +23,19 @@ internal class DownloadManagerImpl(private val downloadRepository: DownloadRepos
     override fun download(downloadToken: DownloadToken, timeout: Long) {
         // Since the downloader can be implemented by the client of this library, we must give it some object to
         // write the progress, and also it has to return us the result.
-        var result: DownloadResult? = null
+        var result = DownloadResult.SUCCESSFUL
         try {
             result = downloader.downloadFile(downloadToken, timeout, progressWriter)
+        } catch (exception: InterruptedException) {
+            Log.d(this.javaClass.name, "Cancelling download of file ${downloadToken.fileName}", exception)
+            result = DownloadResult.CANCELLED
         } catch (exception: Exception) {
             Log.e(this.javaClass.name, "Error trying to download file ${downloadToken.fileName}", exception)
+            result = DownloadResult.ERROR
+        } finally {
+            downloadRepository.completeDownload(downloadToken, result)
         }
-
-        downloadRepository.completeDownload(downloadToken, result ?: DownloadResult.ERROR)
     }
 
     override fun hasPendingDownloads() = downloadRepository.hasPendingDownloads()
-
-    override fun cancel(downloadToken: DownloadToken) {
-        TODO("not implemented") //To change body of created functions use File | Settings | File Templates.
-    }
 }

@@ -31,7 +31,7 @@ class FileDownloader(private val config: FileDownloaderConfig) {
     }
 
     fun cancel(token: DownloadToken) {
-        downloadManager.cancel(token)
+        scheduler.cancel(token)
     }
 
     fun retry(token: DownloadToken, timeout: Long? = null) {

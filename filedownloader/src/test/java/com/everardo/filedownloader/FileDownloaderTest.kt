@@ -155,13 +155,6 @@ class FileDownloaderTest {
     }
 
     @Test
-    fun cancel() {
-        fileDownloader.cancel(mock(DownloadToken::class.java))
-
-        verify(downloadManager).cancel(anySafe(DownloadToken::class.java))
-    }
-
-    @Test
     fun retry() {
         fileDownloader.retry(mock(DownloadToken::class.java))
 

@@ -13,6 +13,7 @@ import android.os.Message
 import com.everardo.filedownloader.DownloadToken
 import com.everardo.filedownloader.di.getObjectFactory
 import com.everardo.filedownloader.manager.DownloadManager
+import java.util.concurrent.Future
 import java.util.concurrent.ThreadPoolExecutor
 
 
@@ -22,10 +23,12 @@ internal class DownloadService: Service() {
         const val TOKEN_EXTRA = "DownloadServiceTokenExtra"
         const val TIMEOUT_EXTRA = "DownloadServiceTimeoutExtra"
         const val RETRY_EXTRA = "DownloadServiceRetryExtra"
+        const val CANCEL_EXTRA = "DownloadServiceCancelExtra"
 
         private const val ADD_PENDING_MSG = 1
         private const val TASK_FINISHED_MSG = 2
         private const val RETRY_MSG = 3
+        private const val CANCEL_MSG = 4
 
         fun getDownloadIntent(context: Context, downloadToken: DownloadToken, timeout: Long): Intent {
             val intent = Intent(context, DownloadService::class.java)
@@ -39,6 +42,13 @@ internal class DownloadService: Service() {
             intent.putExtra(RETRY_EXTRA, true)
             intent.putExtra(TOKEN_EXTRA, downloadToken)
             intent.putExtra(TIMEOUT_EXTRA, timeout)
+            return intent
+        }
+
+        fun getCancelIntent(context: Context, downloadToken: DownloadToken): Intent {
+            val intent = Intent(context, DownloadService::class.java)
+            intent.putExtra(CANCEL_EXTRA, true)
+            intent.putExtra(TOKEN_EXTRA, downloadToken)
             return intent
         }
     }
@@ -61,7 +71,11 @@ internal class DownloadService: Service() {
 
     override fun onStartCommand(intent: Intent, flags: Int, startId: Int): Int {
         handler.obtainMessage()?.also { msg ->
-            msg.what = if (intent.getBooleanExtra(RETRY_EXTRA, false)) RETRY_MSG else ADD_PENDING_MSG
+            msg.what = when {
+                intent.getBooleanExtra(RETRY_EXTRA, false) -> RETRY_MSG
+                intent.getBooleanExtra(CANCEL_EXTRA, false) -> CANCEL_MSG
+                else -> ADD_PENDING_MSG
+            }
             msg.arg1 = startId
             Bundle().also { bundle ->
                 bundle.putParcelable(TOKEN_EXTRA, intent.getParcelableExtra(TOKEN_EXTRA))
@@ -81,6 +95,9 @@ internal class DownloadService: Service() {
     }
 
     inner class ServiceHandler(looper: Looper): Handler(looper) {
+
+        private val downloadTasks: MutableMap<DownloadToken, Future<*>> = HashMap()
+
         override fun handleMessage(msg: Message) {
             when(msg.what) {
                 ADD_PENDING_MSG -> {
@@ -91,7 +108,8 @@ internal class DownloadService: Service() {
 
                     //TODO improve performance by using Kotlin's co-routines instead of thread pools
                     // submit download to Executor
-                    threadExecutor.execute(DownloadTask(this, downloadManager, token, data.getLong(TIMEOUT_EXTRA), msg.arg1))
+                    val future = threadExecutor.submit(DownloadTask(this, downloadManager, token, data.getLong(TIMEOUT_EXTRA), msg.arg1))
+                    downloadTasks[token] = future
                 }
                 RETRY_MSG -> {
                     val data = msg.data
@@ -100,9 +118,29 @@ internal class DownloadService: Service() {
                     //TODO improve performance by using Kotlin's co-routines instead of thread pools
                     // submit download to Executor
                     //TODO we need to use Future and cancel the Task, when we do FileDownloader.cancel(token)
-                    threadExecutor.execute(DownloadTask(this, downloadManager, token, data.getLong(TIMEOUT_EXTRA), msg.arg1))
+                    val future = threadExecutor.submit(DownloadTask(this, downloadManager, token, data.getLong(TIMEOUT_EXTRA), msg.arg1))
+                    downloadTasks[token] = future
+                }
+                CANCEL_MSG -> {
+                    val data = msg.data
+                    val token: DownloadToken = data.getParcelable(TOKEN_EXTRA) as DownloadToken
+
+                    if (downloadTasks.containsKey(token)) {
+                        val future = downloadTasks[token]
+                        future?.let {
+                            if (!it.isCancelled) {
+                                it.cancel(true)
+                            }
+                        }
+                    }
                 }
                 TASK_FINISHED_MSG -> {
+                    val data = msg.data
+                    val token: DownloadToken = data.getParcelable(TOKEN_EXTRA) as DownloadToken
+                    if (downloadTasks.containsKey(token)) {
+                        downloadTasks.remove(token)
+                    }
+
                     // use db manager to check if there are still pending downloads
                     // if not then stopSelf()
                     if (!downloadManager.hasPendingDownloads()) {
@@ -121,9 +159,15 @@ internal class DownloadService: Service() {
 
         override fun run() {
             downloadManager.download(token, timeout)
+
             serviceHandler.obtainMessage()?.also { msg ->
                 msg.what = TASK_FINISHED_MSG
                 msg.arg1 = startId
+
+                Bundle().also { bundle ->
+                    bundle.putParcelable(TOKEN_EXTRA, token)
+                    msg.data = bundle
+                }
 
                 serviceHandler.sendMessage(msg)
             }

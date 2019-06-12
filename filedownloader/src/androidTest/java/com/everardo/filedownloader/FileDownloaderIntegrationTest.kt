@@ -8,9 +8,14 @@ import androidx.test.filters.LargeTest
 import com.everardo.filedownloader.data.repository.DataStatusChange
 import com.everardo.filedownloader.data.repository.DownloadRepository
 import com.everardo.filedownloader.di.ObjectFactory
+import com.everardo.filedownloader.downloader.DownloadResult
+import com.everardo.filedownloader.downloader.Downloader
+import com.everardo.filedownloader.downloader.ProgressWriter
 import com.everardo.filedownloader.manager.DownloadManager
+import com.everardo.filedownloader.manager.DownloadManagerImpl
 import com.everardo.filedownloader.service.SchedulerImpl
 import com.everardo.filedownloader.testutil.anySafe
+import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Before
@@ -19,9 +24,11 @@ import org.junit.runner.RunWith
 import org.mockito.Mock
 import org.mockito.Mockito.anyLong
 import org.mockito.Mockito.doAnswer
+import org.mockito.Mockito.verify
 import org.mockito.MockitoAnnotations
 import org.mockito.invocation.InvocationOnMock
 import org.mockito.stubbing.Answer
+import java.lang.NullPointerException
 import java.util.concurrent.BlockingQueue
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.LinkedBlockingQueue
@@ -49,7 +56,10 @@ class FileDownloaderIntegrationTest {
     private lateinit var downloadRepository: DownloadRepository
 
     @Mock
-    private lateinit var downloadManager: DownloadManager
+    private lateinit var progressWriter: ProgressWriter
+
+    @Mock
+    private lateinit var downloader: Downloader
 
     @Mock
     private lateinit var objectFactory: ObjectFactory
@@ -60,6 +70,7 @@ class FileDownloaderIntegrationTest {
     private lateinit var executor: ThreadPoolExecutor
     private lateinit var fileDownloader: FileDownloader
     private lateinit var notifier: Notifier
+    private lateinit var downloadManager: DownloadManager
 
     @Before
     fun setup() {
@@ -78,6 +89,7 @@ class FileDownloaderIntegrationTest {
 
         ObjectFactory.instance = objectFactory
         whenever(objectFactory.downloadRepository).thenReturn(downloadRepository)
+        downloadManager = DownloadManagerImpl(downloadRepository, downloader, progressWriter)
         whenever(objectFactory.downloadManager).thenReturn(downloadManager)
         whenever(objectFactory.scheduler).thenReturn(SchedulerImpl(context))
         whenever(objectFactory.getNewThreadExecutor()).thenReturn(executor)
@@ -91,6 +103,11 @@ class FileDownloaderIntegrationTest {
 
     }
 
+    @After
+    fun teardown() {
+        executor.shutdownNow()
+    }
+
     @Test
     fun simple() {
         val latch = CountDownLatch(2)
@@ -99,7 +116,7 @@ class FileDownloaderIntegrationTest {
         var fileOneFinished = false
         var fileTwoFinished = false
 
-        whenever(downloadManager.hasPendingDownloads()).thenReturn(false)
+        whenever(downloadRepository.hasPendingDownloads()).thenReturn(false)
 
         doAnswer(object: Answer<Unit> {
             override fun answer(invocation: InvocationOnMock?) {
@@ -131,7 +148,7 @@ class FileDownloaderIntegrationTest {
                     }
                 }
             }
-        }).`when`(downloadManager).download(anySafe(DownloadToken::class.java), anyLong())
+        }).`when`(downloader).downloadFile(anySafe(DownloadToken::class.java), anyLong(), anySafe(ProgressWriter::class.java))
 
         fileDownloader.uri(Uri.parse("https://www.google.com"))
                 .fileName("file1")
@@ -141,6 +158,7 @@ class FileDownloaderIntegrationTest {
                         assertEquals(Status.COMPLETED, status.status)
                         assertEquals(1.0, status.progress, 0.05)
                         fileOneFinished = true
+                        verify(downloadRepository).hasPendingDownloads()
                         latch.countDown()
                     }
                 })
@@ -154,6 +172,7 @@ class FileDownloaderIntegrationTest {
                         assertEquals(Status.ERROR, status.status)
                         assertEquals(0.5, status.progress, 0.05)
                         fileTwoFinished = true
+                        verify(downloadRepository).hasPendingDownloads()
                         latch.countDown()
                     }
                 })
@@ -162,5 +181,73 @@ class FileDownloaderIntegrationTest {
         latch.await(10, TimeUnit.SECONDS)
         assertTrue(fileOneFinished)
         assertTrue(fileTwoFinished)
+    }
+
+    @Test
+    fun cancelDownload() {
+        val latch = CountDownLatch(1)
+
+        doAnswer(object: Answer<Unit> {
+            override fun answer(invocation: InvocationOnMock?) {
+                Thread.sleep(10 * 1000)
+            }
+        }).`when`(downloader).downloadFile(anySafe(DownloadToken::class.java), anyLong(), anySafe(ProgressWriter::class.java))
+
+        val token = fileDownloader.uri(Uri.parse("https://www.google.com/subpath"))
+                .fileName("file2")
+                .download()
+
+        Thread.sleep(1 * 1000)
+
+        fileDownloader.cancel(token)
+
+        latch.await(3, TimeUnit.SECONDS)
+        verify(downloadRepository).completeDownload(token, DownloadResult.CANCELLED)
+        verify(downloadRepository).hasPendingDownloads()
+    }
+
+    @Test
+    fun download_ReturnSuccess() {
+        val latch = CountDownLatch(1)
+
+        whenever(downloader.downloadFile(anySafe(DownloadToken::class.java), anyLong(), anySafe(ProgressWriter::class.java))).thenReturn(DownloadResult.SUCCESSFUL)
+
+        val token = fileDownloader.uri(Uri.parse("https://www.google.com/subpath"))
+                .fileName("file2")
+                .download()
+
+        latch.await(3, TimeUnit.SECONDS)
+        verify(downloadRepository).completeDownload(token, DownloadResult.SUCCESSFUL)
+        verify(downloadRepository).hasPendingDownloads()
+    }
+
+    @Test
+    fun download_ReturnError() {
+        val latch = CountDownLatch(1)
+
+        whenever(downloader.downloadFile(anySafe(DownloadToken::class.java), anyLong(), anySafe(ProgressWriter::class.java))).thenReturn(DownloadResult.ERROR)
+
+        val token = fileDownloader.uri(Uri.parse("https://www.google.com/subpath"))
+                .fileName("file2")
+                .download()
+
+        latch.await(3, TimeUnit.SECONDS)
+        verify(downloadRepository).completeDownload(token, DownloadResult.ERROR)
+        verify(downloadRepository).hasPendingDownloads()
+    }
+
+    @Test
+    fun download_ThrowException() {
+        val latch = CountDownLatch(1)
+
+        whenever(downloader.downloadFile(anySafe(DownloadToken::class.java), anyLong(), anySafe(ProgressWriter::class.java))).thenThrow(NullPointerException())
+
+        val token = fileDownloader.uri(Uri.parse("https://www.google.com/subpath"))
+                .fileName("file2")
+                .download()
+
+        latch.await(3, TimeUnit.SECONDS)
+        verify(downloadRepository).completeDownload(token, DownloadResult.ERROR)
+        verify(downloadRepository).hasPendingDownloads()
     }
 }
