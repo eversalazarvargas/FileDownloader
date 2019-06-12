@@ -3,8 +3,8 @@ package com.everardo.filedownloader
 import android.content.Context
 import com.everardo.filedownloader.di.ObjectFactory
 import com.everardo.filedownloader.di.ObjectFactoryImpl
-import com.everardo.filedownloader.service.DefaultDownloader
-import com.everardo.filedownloader.service.Downloader
+import com.everardo.filedownloader.downloader.DefaultDownloader
+import com.everardo.filedownloader.downloader.Downloader
 import java.io.File
 
 @OpenForTesting

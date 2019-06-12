@@ -9,7 +9,9 @@ import com.everardo.filedownloader.data.repository.DownloadRepository
 import com.everardo.filedownloader.data.repository.DownloadRepositoryImpl
 import com.everardo.filedownloader.manager.DownloadManager
 import com.everardo.filedownloader.manager.DownloadManagerImpl
-import com.everardo.filedownloader.service.Downloader
+import com.everardo.filedownloader.downloader.Downloader
+import com.everardo.filedownloader.downloader.ProgressWriter
+import com.everardo.filedownloader.downloader.ProgressWriterImpl
 import com.everardo.filedownloader.service.Scheduler
 import com.everardo.filedownloader.service.SchedulerImpl
 import java.util.concurrent.BlockingQueue
@@ -50,7 +52,7 @@ internal class ObjectFactoryImpl(override val context: Context, private val down
 
     override val downloadRegistry: DownloadRegistry by lazy { DownloadRegistry(context) }
     override val downloadRepository: DownloadRepository by lazy { DownloadRepositoryImpl() }
-    override val downloadManager: DownloadManager by lazy { DownloadManagerImpl(downloadRepository, downloader) }
+    override val downloadManager: DownloadManager by lazy { DownloadManagerImpl(downloadRepository, downloader, ProgressWriterImpl(downloadRepository)) }
     override val scheduler: Scheduler by lazy { SchedulerImpl(context) }
 
     override fun getNotifier(fileDownloader: FileDownloader): Notifier = NotifierImpl(context, fileDownloader, downloadRepository)
