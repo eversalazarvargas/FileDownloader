@@ -9,7 +9,6 @@ import com.everardo.filedownloader.downloader.ProgressWriter
 import java.lang.Exception
 
 internal interface DownloadManager {
-    fun addPendingDownload(downloadToken: DownloadToken)
     fun download(downloadToken: DownloadToken, timeout: Long)
     fun hasPendingDownloads(): Boolean
 }
@@ -17,10 +16,10 @@ internal interface DownloadManager {
 internal class DownloadManagerImpl(private val downloadRepository: DownloadRepository,
                                    private val downloader: Downloader,
                                    private val progressWriter: ProgressWriter): DownloadManager {
-    override fun addPendingDownload(downloadToken: DownloadToken) {
-        downloadRepository.addPendingDownload(downloadToken)
-    }
+
     override fun download(downloadToken: DownloadToken, timeout: Long) {
+        downloadRepository.addPendingDownload(downloadToken)
+
         // Since the downloader can be implemented by the client of this library, we must give it some object to
         // write the progress, and also it has to return us the result.
         var result = DownloadResult.SUCCESSFUL

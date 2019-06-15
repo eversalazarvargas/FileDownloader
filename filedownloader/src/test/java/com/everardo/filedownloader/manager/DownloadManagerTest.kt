@@ -41,12 +41,6 @@ class DownloadManagerTest {
         token = DownloadToken(uri, "path", "filename")
     }
 
-    @Test
-    fun addPendingDownload() {
-        manager.addPendingDownload(token)
-
-        verify(repository).addPendingDownload(token)
-    }
 
     @Test
     fun download() {

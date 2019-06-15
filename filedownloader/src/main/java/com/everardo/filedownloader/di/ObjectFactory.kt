@@ -1,6 +1,7 @@
 package com.everardo.filedownloader.di
 
 import android.content.Context
+import android.os.HandlerThread
 import com.everardo.filedownloader.DownloadRegistry
 import com.everardo.filedownloader.FileDownloader
 import com.everardo.filedownloader.Notifier
@@ -14,6 +15,7 @@ import com.everardo.filedownloader.downloader.ProgressWriter
 import com.everardo.filedownloader.downloader.ProgressWriterImpl
 import com.everardo.filedownloader.service.Scheduler
 import com.everardo.filedownloader.service.SchedulerImpl
+import com.everardo.filedownloader.service.ServiceHandler
 import java.util.concurrent.BlockingQueue
 import java.util.concurrent.LinkedBlockingQueue
 import java.util.concurrent.ThreadPoolExecutor
@@ -32,6 +34,10 @@ internal interface ObjectFactory {
     val scheduler: Scheduler
 
     fun getNotifier(fileDownloader: FileDownloader): Notifier
+
+    fun getServiceHandler(service: ServiceHandler.CompletableService,
+                          downloadManager: DownloadManager,
+                          threadExecutor: ThreadPoolExecutor): ServiceHandler
 
     fun getNewThreadExecutor(): ThreadPoolExecutor
 }
@@ -56,6 +62,13 @@ internal class ObjectFactoryImpl(override val context: Context, private val down
     override val scheduler: Scheduler by lazy { SchedulerImpl(context) }
 
     override fun getNotifier(fileDownloader: FileDownloader): Notifier = NotifierImpl(context, fileDownloader, downloadRepository)
+
+    override fun getServiceHandler(service: ServiceHandler.CompletableService, downloadManager: DownloadManager, threadExecutor: ThreadPoolExecutor): ServiceHandler {
+        HandlerThread("ServiceStartArguments").apply {
+            start()
+            return ServiceHandler(looper, service, downloadManager, threadExecutor)
+        }
+    }
 
     override fun getNewThreadExecutor(): ThreadPoolExecutor {
         val decodeWorkQueue: BlockingQueue<Runnable> = LinkedBlockingQueue<Runnable>()
