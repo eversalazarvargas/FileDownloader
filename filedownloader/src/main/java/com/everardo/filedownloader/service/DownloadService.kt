@@ -5,30 +5,21 @@ import android.content.Context
 import android.content.Intent
 import android.os.Binder
 import android.os.Bundle
-import android.os.Handler
-import android.os.HandlerThread
 import android.os.IBinder
-import android.os.Looper
-import android.os.Message
 import com.everardo.filedownloader.DownloadToken
 import com.everardo.filedownloader.di.getObjectFactory
-import com.everardo.filedownloader.manager.DownloadManager
-import java.util.concurrent.Future
-import java.util.concurrent.ThreadPoolExecutor
+import com.everardo.filedownloader.service.ServiceHandler.Companion.ADD_PENDING_MSG
+import com.everardo.filedownloader.service.ServiceHandler.Companion.CANCEL_MSG
+import com.everardo.filedownloader.service.ServiceHandler.Companion.RETRY_MSG
 
 
-internal class DownloadService: Service() {
+internal class DownloadService: Service(), ServiceHandler.CompletableService {
 
     companion object {
         const val TOKEN_EXTRA = "DownloadServiceTokenExtra"
         const val TIMEOUT_EXTRA = "DownloadServiceTimeoutExtra"
         const val RETRY_EXTRA = "DownloadServiceRetryExtra"
         const val CANCEL_EXTRA = "DownloadServiceCancelExtra"
-
-        private const val ADD_PENDING_MSG = 1
-        private const val TASK_FINISHED_MSG = 2
-        private const val RETRY_MSG = 3
-        private const val CANCEL_MSG = 4
 
         fun getDownloadIntent(context: Context, downloadToken: DownloadToken, timeout: Long): Intent {
             val intent = Intent(context, DownloadService::class.java)
@@ -53,124 +44,37 @@ internal class DownloadService: Service() {
         }
     }
 
-    private lateinit var handler: Handler
-    private lateinit var downloadManager: DownloadManager
-    private lateinit var threadExecutor: ThreadPoolExecutor
+    private lateinit var handler: ServiceHandler
 
     override fun onCreate() {
-        downloadManager = getObjectFactory().downloadManager
-        threadExecutor = getObjectFactory().getNewThreadExecutor()
-
-        HandlerThread("ServiceStartArguments").apply {
-            start()
-            handler = ServiceHandler(looper)
-        }
+        val downloadManager = getObjectFactory().downloadManager
+        val threadExecutor = getObjectFactory().getNewThreadExecutor()
+        handler = getObjectFactory().getServiceHandler(this@DownloadService, downloadManager, threadExecutor)
     }
 
     override fun onBind(intent: Intent?): IBinder? = Binder()
 
     override fun onStartCommand(intent: Intent, flags: Int, startId: Int): Int {
-        handler.obtainMessage()?.also { msg ->
-            msg.what = when {
-                intent.getBooleanExtra(RETRY_EXTRA, false) -> RETRY_MSG
-                intent.getBooleanExtra(CANCEL_EXTRA, false) -> CANCEL_MSG
-                else -> ADD_PENDING_MSG
-            }
-            msg.arg1 = startId
-            Bundle().also { bundle ->
-                bundle.putParcelable(TOKEN_EXTRA, intent.getParcelableExtra(TOKEN_EXTRA))
-                bundle.putLong(TIMEOUT_EXTRA, intent.getLongExtra(TIMEOUT_EXTRA, 3L * 60 * 1000))
-                msg.data = bundle
-            }
+        val bundle = Bundle().apply {
+            putParcelable(TOKEN_EXTRA, intent.getParcelableExtra(TOKEN_EXTRA))
+            putLong(TIMEOUT_EXTRA, intent.getLongExtra(TIMEOUT_EXTRA, 3L * 60 * 1000))
+        }
 
-            handler.sendMessage(msg)
+        when {
+            intent.getBooleanExtra(RETRY_EXTRA, false) -> handler.handleMessage(RETRY_MSG, bundle, startId)
+            intent.getBooleanExtra(CANCEL_EXTRA, false) -> handler.handleMessage(CANCEL_MSG, bundle, startId)
+            else -> handler.handleMessage(ADD_PENDING_MSG, bundle, startId)
         }
 
         return START_REDELIVER_INTENT
     }
 
+    override fun stop(startId: Int) {
+        stopSelf(startId)
+    }
+
     override fun onDestroy() {
-        threadExecutor.shutdown()
+        handler.shutdown()
         super.onDestroy()
-    }
-
-    inner class ServiceHandler(looper: Looper): Handler(looper) {
-
-        private val downloadTasks: MutableMap<DownloadToken, Future<*>> = HashMap()
-
-        override fun handleMessage(msg: Message) {
-            when(msg.what) {
-                ADD_PENDING_MSG -> {
-                    // store pending in db
-                    val data = msg.data
-                    val token: DownloadToken = data.getParcelable(TOKEN_EXTRA) as DownloadToken
-                    downloadManager.addPendingDownload(token)
-
-                    //TODO improve performance by using Kotlin's co-routines instead of thread pools
-                    // submit download to Executor
-                    val future = threadExecutor.submit(DownloadTask(this, downloadManager, token, data.getLong(TIMEOUT_EXTRA), msg.arg1))
-                    downloadTasks[token] = future
-                }
-                RETRY_MSG -> {
-                    val data = msg.data
-                    val token: DownloadToken = data.getParcelable(TOKEN_EXTRA) as DownloadToken
-
-                    //TODO improve performance by using Kotlin's co-routines instead of thread pools
-                    // submit download to Executor
-                    //TODO we need to use Future and cancel the Task, when we do FileDownloader.cancel(token)
-                    val future = threadExecutor.submit(DownloadTask(this, downloadManager, token, data.getLong(TIMEOUT_EXTRA), msg.arg1))
-                    downloadTasks[token] = future
-                }
-                CANCEL_MSG -> {
-                    val data = msg.data
-                    val token: DownloadToken = data.getParcelable(TOKEN_EXTRA) as DownloadToken
-
-                    if (downloadTasks.containsKey(token)) {
-                        val future = downloadTasks[token]
-                        future?.let {
-                            if (!it.isCancelled) {
-                                it.cancel(true)
-                            }
-                        }
-                    }
-                }
-                TASK_FINISHED_MSG -> {
-                    val data = msg.data
-                    val token: DownloadToken = data.getParcelable(TOKEN_EXTRA) as DownloadToken
-                    if (downloadTasks.containsKey(token)) {
-                        downloadTasks.remove(token)
-                    }
-
-                    // use db manager to check if there are still pending downloads
-                    // if not then stopSelf()
-                    if (!downloadManager.hasPendingDownloads()) {
-                        stopSelf(msg.arg1)
-                    }
-                }
-            }
-        }
-    }
-
-    class DownloadTask(private val serviceHandler: ServiceHandler,
-                       private val downloadManager: DownloadManager,
-                       private val token: DownloadToken,
-                       private val timeout: Long,
-                       private val startId: Int) : Runnable {
-
-        override fun run() {
-            downloadManager.download(token, timeout)
-
-            serviceHandler.obtainMessage()?.also { msg ->
-                msg.what = TASK_FINISHED_MSG
-                msg.arg1 = startId
-
-                Bundle().also { bundle ->
-                    bundle.putParcelable(TOKEN_EXTRA, token)
-                    msg.data = bundle
-                }
-
-                serviceHandler.sendMessage(msg)
-            }
-        }
     }
 }
