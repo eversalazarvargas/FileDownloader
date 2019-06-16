@@ -35,11 +35,11 @@ internal data class DataStatusChange(val status: Status,
  */
 internal class DownloadRepositoryImpl: DownloadRepository {
     override fun addPendingDownload(token: DownloadToken) {
-        TODO("not implemented") //To change body of created functions use File | Settings | File Templates.
+        //TODO not implemented
     }
 
     override fun completeDownload(token: DownloadToken, result: DownloadResult) {
-        TODO("not implemented") //To change body of created functions use File | Settings | File Templates.
+        //TODO not implemented
     }
 
     override fun hasPendingDownloads(): Boolean {
@@ -47,11 +47,11 @@ internal class DownloadRepositoryImpl: DownloadRepository {
     }
 
     override fun registerContentObserver(contentObserver: ContentObserver) {
-        TODO("not implemented") //To change body of created functions use File | Settings | File Templates.
+        //TODO not implemented
     }
 
     override fun unregisterContentObserver(contentObserver: ContentObserver) {
-        TODO("not implemented") //To change body of created functions use File | Settings | File Templates.
+        //TODO not implemented
     }
 
     override fun getDataStatusChange(uri: Uri): DataStatusChange {

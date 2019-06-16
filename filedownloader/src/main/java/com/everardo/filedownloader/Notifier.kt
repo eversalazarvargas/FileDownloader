@@ -6,7 +6,7 @@ import android.net.Uri
 import android.os.Bundle
 import android.os.Handler
 import android.os.Message
-import android.support.v4.util.ArrayMap
+import androidx.collection.ArrayMap
 import com.everardo.filedownloader.data.repository.DataStatusChange
 import com.everardo.filedownloader.data.repository.DownloadRepository
 
@@ -22,7 +22,7 @@ internal class NotifierImpl(private val context: Context, private val fileDownlo
         const val DATA_EXTRA = "dataExtra"
     }
 
-    private val listenersMap = ArrayMap<DownloadToken, DownloadListener>()
+    private val listenersMap = androidx.collection.ArrayMap<DownloadToken, DownloadListener>()
     private val handler = object : Handler(context.mainLooper) {
         override fun handleMessage(msg: Message) {
             if (msg.what == NOTIFY_STATUS_MSG) {

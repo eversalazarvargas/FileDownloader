@@ -92,6 +92,9 @@ internal class ServiceHandler(looper: Looper,
                     downloadTasks.remove(token)
                 }
 
+                //TODO Remove this log
+                Log.i("PROBANDO", "downloaded of file ${token.fileName} finished")
+
                 // use db manager to check if there are still pending downloads
                 // if not then stopSelf()
                 if (downloadTasks.isEmpty()) {

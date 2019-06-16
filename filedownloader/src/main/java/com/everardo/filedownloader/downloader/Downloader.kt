@@ -8,6 +8,8 @@ interface Downloader {
 
 internal class DefaultDownloader: Downloader {
     override fun downloadFile(downloadToken: DownloadToken, timeout: Long, progressWriter: ProgressWriter): DownloadResult {
-        TODO("not implemented") //To change body of created functions use File | Settings | File Templates.
+        //TODO not implemented
+
+        return DownloadResult.SUCCESSFUL
     }
 }
