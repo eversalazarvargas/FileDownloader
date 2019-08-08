@@ -1,1 +1,1 @@
-File Downloader Library for Android
+Android Library to create asynchronous tasks to download files.
