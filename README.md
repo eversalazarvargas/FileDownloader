@@ -1,6 +1,6 @@
-Android Library to create asynchronous tasks to download files.
+## Android Library to create asynchronous tasks to download files.
 
-Important: This library is still work in progress, so it's not functional yet.
+**Important**: This library is still work in progress, so it's not functional yet.
 
 First create a configuration of the FileDownloader:
 
@@ -46,7 +46,7 @@ DownloadListener listener = new AbstractDownloadListener() {
 };
 
 // Download
-DownloadToken token = fileDownloader.uri(uri)
+DownloadToken token = fileDownloader.uri(Uri.parse("https://www.google.com"))
                 .fileName(fileName)
                 .listener(listener)
                 .timeout(2)
